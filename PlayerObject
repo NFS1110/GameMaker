@@ -1,0 +1,210 @@
+CREATE
+/// @desc Player Variables
+horizontalSpeed = 0;
+verticalSpeed = 0;
+grav = 0.3;
+walkSpeed = 6;
+player_hp = 3;
+
+controller = 0;	
+hascontrol = true;
+
+// weapon variables 
+weapon = noone;
+pickup_radius = 50;
+
+target = noone
+is_being_carried = false
+
+// GLOBAL variables
+
+global.CURRENT_ROOM = room;
+
+global.PLAYER_SCORE = 0;
+
+global.CURRENT_BOSS = "SARGEANT LIGHT LUNATIC"
+
+STEP
+#region // Player Input Checks
+if (hascontrol)
+{
+	keyLeft = keyboard_check(ord("A"));
+	keyRight = keyboard_check(ord("D"));
+	keyJump = keyboard_check(vk_space);
+	keyReset = keyboard_check(ord("R"));
+	keyPickup = keyboard_check(ord(mb_right));
+	keyShoot = mouse_check_button(mb_left);
+	keySlide = keyboard_check(ord("S"));
+
+	if (keyLeft) || (keyRight) || (keyJump) || (keyPickup) || (keyShoot)
+	{
+		controller = 0;	
+	}
+
+	if (abs(gamepad_axis_value(0,gp_axislh)) > 0.2)
+	{
+			keyLeft = abs(min(gamepad_axis_value(0,gp_axislh),0));
+			keyRight = max(gamepad_axis_value(0,gp_axislh),0);
+	}
+
+	if (gamepad_button_check_pressed(0, gp_face1))
+	{
+		keyJump = 1;
+		controller = 1;
+	}
+}
+else
+{
+	keyRight = 0;
+	keyLeft = 0;
+	keyJump = 0;
+	keyPickup = 0;
+	keyShoot = 0;
+}
+#endregion
+
+if(is_being_carried = false)
+{
+	keyShoot = false
+}
+// Movement Calaculations based on player input
+var move = keyRight - keyLeft;
+horizontalSpeed = move * walkSpeed;
+verticalSpeed = verticalSpeed + grav;
+if(place_meeting(x, y + 1, WallObject)) && (keyJump)
+{
+	verticalSpeed = -7.5;
+}
+
+
+// Horizontal Collisions
+if(place_meeting(x + horizontalSpeed, y, WallObject))
+{
+	while(!place_meeting(x + sign(horizontalSpeed), y, WallObject))
+	{
+		x = x + sign(horizontalSpeed);
+	}
+	horizontalSpeed = 0;
+}
+
+x = x + horizontalSpeed;
+
+// Vertical Collisions
+if(place_meeting(x, y + verticalSpeed, WallObject))
+{
+	while(!place_meeting(x, y + sign(verticalSpeed), WallObject))
+	{
+		y = y + sign(verticalSpeed);
+	}
+	verticalSpeed = 0;
+}
+
+y = y + verticalSpeed;
+
+
+if(keyReset)
+{
+	layer_destroy_instances("EnemyLayer");
+	x = 30;
+	y = 710;
+	instance_create_layer(384, 624, "EnemyLayer", EnemyObject);
+	instance_create_layer(752, 720, "EnemyLayer", EnemyObject);
+	instance_create_layer(1088, 720, "EnemyLayer", EnemyObject);
+	instance_create_layer(1200, 624, "EnemyLayer", EnemyObject);
+	instance_create_layer(1392, 336, "EnemyLayer", EnemyObject);
+	instance_create_layer(1776, 432, "EnemyLayer", EnemyObject);
+	instance_create_layer(1920, 560, "EnemyLayer", EnemyObject);
+	instance_create_layer(2048, 720, "EnemyLayer", EnemyObject);
+	instance_create_layer(2240, 336, "EnemyLayer", EnemyObject);
+	instance_create_layer(2368, 720, "EnemyLayer", EnemyObject);
+	instance_create_layer(2768, 592, "EnemyLayer", EnemyObject);	
+}
+
+// Animation
+if(!place_meeting(x, y + 1, WallObject))
+{
+	sprite_index = PlayerJumpSprite;
+	image_speed = 0;
+	if(sign(verticalSpeed) > 0)
+	{
+		image_index = 1;
+	}
+	else
+	{
+		image_index = 0;
+	}
+}
+else
+{
+	if (sprite_index == PlayerJumpSprite)
+	{
+		audio_sound_pitch(LandingSound,choose(0.8,1.0,1.2));
+		audio_play_sound(LandingSound,6,false);	
+		
+	}
+	image_speed = 1;
+	if(horizontalSpeed == 0)
+	{
+		sprite_index = PlayerIdleSprite;
+	}
+	else
+	{
+		sprite_index = PlayerMovingSprite;
+	}
+}
+
+if(horizontalSpeed != 0)
+{
+	image_xscale = sign(horizontalSpeed);
+}
+
+if (keySlide)
+{
+	sprite_index = PlayerSlideSprite;
+	keyJump = 1;
+}
+
+// Pickup
+if keyboard_check(ord("E"))
+{
+	var pickupList = ds_list_create();
+	var pickupCount = collision_circle_list(x, y, pickup_radius, SMGObject, false, true, pickupList, true);
+	if instance_exists (PistolObject)
+	{
+		pickupCount = collision_circle_list(x, y, pickup_radius, PistolObject, false, true, pickupList, true);	
+	}
+	if(pickupCount > 0)
+	{
+		// first we need to know if we are holding on to a weapon
+		if(weapon == noone)
+		{
+			weapon = pickupList[| 0];
+			
+			weapon.target = id;
+			weapon.is_being_carried = true;
+		}
+		else
+		{
+			// we are holding a weapon
+			for(var index = 0; index < pickupCount; index ++)
+			{
+				if(pickupList[| index] != weapon) 
+				{
+					// drop original weapon
+					weapon.target = noone;
+					weapon.is_being_carried = false;
+					
+					// pickup the new weapon
+					weapon = pickupList[| index]
+					weapon.target = id;
+					weapon.is_being_carried = true;
+					
+					break;
+				}
+			}
+		}	
+	}
+	
+	ds_list_destroy(pickupList)
+}
+	
